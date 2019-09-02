@@ -2,26 +2,35 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "grafana.fullname" . }}
-  labels: {{ include "grafana.labels" . | nindent 4 }}
+  labels:
+    app.kubernetes.io/name: {{ include "grafana.name" . }}
+    helm.sh/chart: {{ include "grafana.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels: {{ include "grafana.matchLabels" . | nindent 6 }}
+    matchLabels:
+      app.kubernetes.io/name: {{ include "grafana.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   {{- if .Values.updateStrategy }}
   strategy: {{ toYaml .Values.updateStrategy | nindent 4 }}
   {{- end }}
   template:
     metadata:
-      labels: {{ include "grafana.labels" . | nindent 8 }}
-      annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/dashboard-provider: {{ include (print $.Template.BasePath "/dashboard-provider.yaml") . | sha256sum }}
+      labels:
+        app.kubernetes.io/name: {{ include "grafana.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        helm.sh/chart: {{ include "grafana.chart" . }}
 {{- if .Values.podAnnotations }}
+      annotations:
+         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+         checksum/dashboard-provider: {{ include (print $.Template.BasePath "/dashboard-provider.yaml") . | sha256sum }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
 {{- end }}
     spec:
       {{- if .Values.schedulerName }}
-      schedulerName: {{ .Values.schedulerName | quote }}
+      schedulerName: "{{ .Values.schedulerName }}"
       {{- end }}
 {{- include "grafana.imagePullSecrets" . | indent 6 }}
      {{- if .Values.securityContext.enabled }}
@@ -30,38 +39,26 @@ spec:
         fsGroup: {{ .Values.securityContext.fsGroup }}
         runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
       {{- end }}
-{{- with .Values.nodeSelector }}
-      nodeSelector:
-{{-  tpl (toYaml .) $ | indent 8 }}
-{{- end }}
-{{- with .Values.affinity }}
-      affinity:
-{{-  tpl (toYaml .) $ | indent 8 }}
-{{- end }}
-{{- with .Values.tolerations }}
-      tolerations:
-{{- tpl (toYaml .) $ | indent 8 }}
-{{- end }}
       containers:
       - name: {{ .Chart.Name }}
-        image: {{ template "grafana.image" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         envFrom:
         - configMapRef:
-            name: {{ include "grafana.fullname" . }}-envvars
+            name: "{{ include "grafana.fullname" . }}-envvars"
         - secretRef:
-            name: {{ include "grafana.fullname" . }}-secret
+            name: "{{ include "grafana.fullname" . }}-secret"
         {{- if .Values.smtp.existingSecret }}
         - name: GF_SMTP_USER
           valueFrom:
             secretKeyRef:
               name: {{ .Values.smtp.existingSecret }}
-              key: {{ .Values.smtp.existingSecretUserKey }}
+              key: {{ .Values.smtp.existingSecretUserKey | default "user" }}
         - name: GF_SMTP_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.smtp.existingSecret }}
-              key: {{ .Values.smtp.existingSecretPasswordKey }}
+              key: {{ .Values.smtp.existingSecretPasswordKey | default "password" }}
         {{- end }}
 {{- if .Values.extraEnvVars }}
 {{ toYaml .Values.extraEnvVars | indent 8 }}
@@ -84,9 +81,8 @@ spec:
           mountPath: /opt/bitnami/grafana/conf/provisioning/dashboards
         {{- end }}
         {{- range .Values.dashboardsConfigMaps }}
-        - name: {{ .configMapName }}
-          mountPath: /opt/bitnami/grafana/dashboards/{{ .fileName }}
-          subPath: {{ .fileName }}
+        - name: {{ . }}
+          mountPath: /opt/bitnami/grafana/dashboards
         {{- end }}
         {{- if .Values.datasources.secretName }}
         - name: datasources
@@ -108,16 +104,15 @@ spec:
             containerPort: 3000
             protocol: TCP
         livenessProbe:
-          httpGet:
-            path: /
+          tcpSocket:
             port: dashboard
 {{ toYaml .Values.livenessProbe | indent 10 }}
         readinessProbe:
-          httpGet:
-            path: /
+          tcpSocket:
             port: dashboard
 {{ toYaml .Values.readinessProbe | indent 10 }}
-        resources: {{- toYaml .Values.resources | nindent 10 }}
+        resources:
+{{- toYaml .Values.resources | nindent 10 }}
       volumes:
       - name: data
       {{- if .Values.persistence.enabled }}
@@ -139,9 +134,9 @@ spec:
           {{- end }}
       {{- end }}
       {{- range .Values.dashboardsConfigMaps }}
-      - name: {{ .configMapName }}
+      - name: {{ . }}
         configMap:
-          name: {{ .configMapName }}
+          name: {{ . }}
       {{- end }}
       {{- if .Values.datasources.secretName }}
       - name: datasources
@@ -163,3 +158,15 @@ spec:
         configMap:
           name: {{ .name }}
       {{- end }}
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+{{- toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.affinity }}
+      affinity:
+{{- toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
+      tolerations:
+{{- toYaml . | indent 8 }}
+{{- end }}

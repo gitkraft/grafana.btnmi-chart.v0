@@ -15,13 +15,6 @@ This chart bootstraps a [grafana](https://github.com/bitnami/bitnami-docker-graf
 
 Bitnami charts can be used with [Kubeapps](https://kubeapps.com/) for deployment and management of Helm Charts in clusters.
 
-## Prerequisites
-
-- Kubernetes 1.12+
-- Helm 2.11+ or Helm 3.0-beta3+
-- PV provisioner support in the underlying infrastructure
-- ReadWriteMany volumes for deployment scaling
-
 ## Installing the Chart
 
 To install the chart with the release name `my-release`:
@@ -54,17 +47,17 @@ The following tables lists the configurable parameters of the grafana chart and 
 | `global.imageRegistry`                      | Global Docker image registry                                                                | `nil`                                                   |
 | `global.imagePullSecrets`                   | Global Docker registry secret names as an array                                             | `[]` (does not add image pull secrets to deployed pods) |
 | `image.registry`                            | Grafana image registry                                                                      | `docker.io`                                             |
-| `image.repository`                          | Grafana image name                                                                          | `bitnami/grafana`                                       |
-| `image.tag`                                 | Grafana image tag                                                                           | `{TAG_NAME}`                                            |
+| `image.repository`                          | Grafana Image name                                                                          | `bitnami/grafana`                                       |
+| `image.tag`                                 | Grafana Image tag                                                                           | `{TAG_NAME}`                                            |
 | `image.pullPolicy`                          | Grafana image pull policy                                                                   | `IfNotPresent`                                          |
 | `image.pullSecrets`                         | Specify docker-registry secret names as an array                                            | `[]` (does not add image pull secrets to deployed pods) |
 | `nameOverride`                              | String to partially override grafana.fullname template with a string (will prepend the release name) | `nil`                                          |
 | `fullnameOverride`                          | String to fully override grafana.fullname template with a string                            | `nil`                                                   |
-| `replicaCount`                               | Number of replicas of the Grafana Pod                                                       | `1`                                                     |
-| `updateStrategy`                            | Update strategy for deployment                                                              | `{type: "RollingUpdate"}`                                       |
+|`replicaCount`                               | Number of replicas of the Grafana Pod                                                       | `1`                                                     |
+| `updateStrategy.type`                       | Update strategy for deployment                                                              | `RollingUpdate`                                         |
 | `schedulerName`                             | Alternative scheduler                                                                       | `nil`                                                   |
 | `admin.user`                                | Grafana admin username                                                                      | `admin`                                                 |
-| `admin.password`                            | Grafana admin password                                                                      | Randomly generated                                               |
+| `admin.password`                            | Grafana admin password                                                                      | Randomly generated                                      |
 | `smtp.enabled`                              | Enable SMTP configuration                                                                   | `false`                                                 |
 | `smtp.existingSecret`                       | Secret with SMTP credentials                                                                | `nil`                                                   |
 | `smtp.existingSecretUserKey`                | Key which value is the SMTP user in the SMTP secret                                         | `user`                                                  |
@@ -140,7 +133,7 @@ $ helm install --name my-release -f values.yaml bitnami/grafana
 
 Grafana support multiples configuration files. Using kubernetes you can mount a file using a ConfigMap. For example, to mount a custom `grafana.ini` file or `custom.ini` file you can create a ConfigMap like the following:
 
-```yaml
+```
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -152,19 +145,18 @@ data:
 
 And now you need to pass the ConfigMap name, to the corresponding parameter:
 
-```console
+```
 $ helm install bitnami/grafana --set config.useGrafanaIniFile=true,config.grafanaIniConfigMap=myconfig
 ```
 
-To provide dashboards on deployment time, Grafana needs a dashboards provider and the dashboards themselves.
-A default provider is created if enabled, or you can mount your own provider using a ConfigMap, but have in mind that the path to the dashboard folder must be `/opt/bitnami/grafana/dashboards`.
-  1. To create a dashboard, it is needed to have a datasource for it. The datasources must be created mounting a secret with all the datasource files in it. In this case, it is not a ConfigMap because the datasource could contain sensitive information.
-  2. To load the dashboards themselves you need to create a ConfigMap for each one containing the `json` file that defines the dashboard and set the array with the ConfigMap names into the `dashboardsConfigMaps` parameter.
+To provide dashboards on deployment time, Grafana needs a dashboards provider and the dashboards themselves. A default provider is created if enabled, or you can mount your own provider using a ConfigMap, but have in mind that the path to the dashboard folder must be `/opt/bitnami/grafana/dashboards`.
+To create a dashboard, it is needed to have a datasource for it. The datasources must be created mounting a secret with all the datasource files in it. In this case, it is not a ConfigMap because the datasource could contain sensitive information.
+To load the dashboards themselves you need to create a ConfigMap for each one containing the `json` file that defines the dashboard and set the array with the ConfigMap names into the `dashboardsConfigMaps` parameter.
 Note the difference between the datasources and the dashboards creation. For the datasources we can use just one secret with all of the files, while for the dashboards we need one ConfigMap per file.
 For example, after the creation of the dashboard and datasource ConfigMap in the same way that the explained for the `grafana.ini` file, execute the following to deploy Grafana with custom dashboards:
 
-```console
-$ helm install bitnami/grafana --set "dashboardsProvider.enabled=true,datasources.secretName=datasource-secret,dashboardsConfigMaps[0].configMapName=mydashboard,dashboardsConfigMaps[0].fileName=mydashboard.json"
+```
+$ helm install bitnami/grafana --set "dashboardsProvider.enabled=true,datasources.secretName=datasource-secret,dashboardsConfigMaps[0]=mydashboard"
 ```
 
 ### Production configuration
@@ -176,96 +168,13 @@ $ helm install --name my-release -f ./values-production.yaml bitnami/grafana
 ```
 
 - Enable ingress controller
-
 ```diff
 - ingress.enabled: false
 + ingress.enabled: true
 ```
-
-### LDAP configuration
-
-To enable LDAP authentication it is necessary to provide a ConfigMap with the Grafana LDAP configuration file. For instance:
-
-**configmap.yaml**:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ldap-config
-data:
-  ldap.toml: |-
-      [[servers]]
-      # Ldap server host (specify multiple hosts space separated)
-      host = "ldap"
-      # Default port is 389 or 636 if use_ssl = true
-      port = 389
-      # Set to true if ldap server supports TLS
-      use_ssl = false
-      # Set to true if connect ldap server with STARTTLS pattern (create connection in insecure, then upgrade to secure connection with TLS)
-      start_tls = false
-      # set to true if you want to skip ssl cert validation
-      ssl_skip_verify = false
-      # set to the path to your root CA certificate or leave unset to use system defaults
-      # root_ca_cert = "/path/to/certificate.crt"
-      # Authentication against LDAP servers requiring client certificates
-      # client_cert = "/path/to/client.crt"
-      # client_key = "/path/to/client.key"
-
-      # Search user bind dn
-      bind_dn = "cn=admin,dc=example,dc=org"
-      # Search user bind password
-      # If the password contains # or ; you have to wrap it with triple quotes. Ex """#password;"""
-      bind_password = 'admin'
-
-      # User search filter, for example "(cn=%s)" or "(sAMAccountName=%s)" or "(uid=%s)"
-      # Allow login from email or username, example "(|(sAMAccountName=%s)(userPrincipalName=%s))"
-      search_filter = "(uid=%s)"
-
-      # An array of base dns to search through
-      search_base_dns = ["ou=People,dc=support,dc=example,dc=org"]
-
-      # group_search_filter = "(&(objectClass=posixGroup)(memberUid=%s))"
-      # group_search_filter_user_attribute = "distinguishedName"
-      # group_search_base_dns = ["ou=groups,dc=grafana,dc=org"]
-
-      # Specify names of the ldap attributes your ldap uses
-      [servers.attributes]
-      name = "givenName"
-      surname = "sn"
-      username = "cn"
-      member_of = "memberOf"
-      email =  "email"
-```
-
-Create the ConfigMap into the cluster:
-
-```console
-$ kubectl create -f configmap.yaml
-```
-
-And deploy the Grafana Helm Chart using the existing ConfigMap:
-
-```console
-$ helm install bitnami/grafana --set ldap.enabled=true,ldap.configMapName=ldap-config,ldap.allowSignUp=true
-```
-
-### Supporting HA (High Availability)
-
-To support HA Grafana just need an external database where store dashboards, users and other persistent data.
-To configure the external database provide a configuration file containing the [database section](https://grafana.com/docs/installation/configuration/#database)
-
-More information about Grafana HA [here](https://grafana.com/docs/tutorials/ha_setup/)
 
 ### [Rolling VS Immutable tags](https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/)
 
 It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
 
 Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
-
-## Persistence
-
-The [Bitnami Grafana](https://github.com/bitnami/bitnami-docker-grafana) image stores the Grafana data and configurations at the `/opt/bitnami/grafana/data` path of the container.
-
-Persistent Volume Claims are used to keep the data across deployments. This is known to work in GCE, AWS, and minikube.
-See the [Configuration](#configuration) section to configure the PVC or to disable persistence.

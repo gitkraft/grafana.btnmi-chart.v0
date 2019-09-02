@@ -7,47 +7,6 @@ Expand the name of the chart.
 {{- end -}}
 
 {{/*
-Return the proper Grafana image name
-*/}}
-{{- define "grafana.image" -}}
-{{- $registryName := .Values.image.registry -}}
-{{- $repositoryName := .Values.image.repository -}}
-{{- $tag := .Values.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
-{{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Common labels
-*/}}
-{{- define "grafana.labels" -}}
-app.kubernetes.io/name: {{ include "grafana.name" . }}
-helm.sh/chart: {{ include "grafana.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end -}}
-
-{{/*
-Labels to use on deploy.spec.selector.matchLabels and svc.spec.selector
-*/}}
-{{- define "grafana.matchLabels" -}}
-app.kubernetes.io/name: {{ include "grafana.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
-
-{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
@@ -133,31 +92,5 @@ but Helm 2.9 and 2.10 does not support it, so we need to implement this if-else 
             {{- printf "storageClassName: %s" .Values.persistence.storageClass -}}
         {{- end -}}
     {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Validate values for Grafana.
-*/}}
-{{- define "grafana.validateValues" -}}
-{{- $messages := list -}}
-{{- $messages := append $messages (include "grafana.validateValues.database" .) -}}
-{{- $messages := without $messages "" -}}
-{{- $message := join "\n" $messages -}}
-
-{{- if $message -}}
-{{-   printf "\nVALUES VALIDATION:\n%s" $message -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Function to validate the external database
-*/}}
-{{- define "grafana.validateValues.database" -}}
-{{- $replicaCount := int .Values.replicaCount }}
-{{- if gt $replicaCount 1 -}}
-WARNING: Using more than one replica requires using an external database to share data between Grafana instances.
-         By default Grafana uses an internal sqlite3 per instance but you can configure an external MySQL or PostgreSQL.
-         Please, ensure you provide a configuration file configuring the external database to share data between replicas.
 {{- end -}}
 {{- end -}}
