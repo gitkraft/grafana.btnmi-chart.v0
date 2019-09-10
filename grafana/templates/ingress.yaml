@@ -3,13 +3,12 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ include "grafana.fullname" . }}
-  labels:
-    app.kubernetes.io/name: {{ include "grafana.name" . }}
-    helm.sh/chart: {{ include "grafana.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-  {{- with .Values.ingress.annotations }}
+  labels: {{ include "grafana.labels" . | nindent 4 }}
   annotations:
+  {{- if .Values.ingress.certManager }}
+    kubernetes.io/tls-acme: "true"
+  {{- end }}
+  {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
