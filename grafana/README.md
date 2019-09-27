@@ -133,7 +133,7 @@ $ helm install --name my-release -f values.yaml bitnami/grafana
 
 Grafana support multiples configuration files. Using kubernetes you can mount a file using a ConfigMap. For example, to mount a custom `grafana.ini` file or `custom.ini` file you can create a ConfigMap like the following:
 
-```
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -145,7 +145,7 @@ data:
 
 And now you need to pass the ConfigMap name, to the corresponding parameter:
 
-```
+```console
 $ helm install bitnami/grafana --set config.useGrafanaIniFile=true,config.grafanaIniConfigMap=myconfig
 ```
 
@@ -156,7 +156,7 @@ A default provider is created if enabled, or you can mount your own provider usi
 Note the difference between the datasources and the dashboards creation. For the datasources we can use just one secret with all of the files, while for the dashboards we need one ConfigMap per file.
 For example, after the creation of the dashboard and datasource ConfigMap in the same way that the explained for the `grafana.ini` file, execute the following to deploy Grafana with custom dashboards:
 
-```
+```console
 $ helm install bitnami/grafana --set "dashboardsProvider.enabled=true,datasources.secretName=datasource-secret,dashboardsConfigMaps[0].configMapName=mydashboard,dashboardsConfigMaps[0].fileName=mydashboard.json"
 ```
 
@@ -169,16 +169,19 @@ $ helm install --name my-release -f ./values-production.yaml bitnami/grafana
 ```
 
 - Enable ingress controller
+
 ```diff
 - ingress.enabled: false
 + ingress.enabled: true
 ```
 
 ### LDAP configuration
-To enable LDAP authentication it is needed to provide a ConfigMap with the Grafana LDAP configuration file. For instance:
+
+To enable LDAP authentication it is necessary to provide a ConfigMap with the Grafana LDAP configuration file. For instance:
 
 **configmap.yaml**:
-```
+
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -229,12 +232,14 @@ data:
 ```
 
 Create the ConfigMap into the cluster:
-```bash
+
+```console
 $ kubectl create -f configmap.yaml
 ```
 
 And deploy the Grafana Helm Chart using the existing ConfigMap:
-```bash
+
+```console
 $ helm install bitnami/grafana --set ldap.enabled=true,ldap.configMapName=ldap-config,ldap.allowSignUp=true
 ```
 
